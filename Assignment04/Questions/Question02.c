@@ -78,14 +78,14 @@ int main(int argc, char *argv[])
         }
     }
     // Creating shared memory segment
-    int shmid = shmget(IPC_PRIVATE, sizeof(int) * m * r, IPC_CREAT | 0666); // generating shmid for allocation/attachment of shared memory segment using shmget()
+    int shmid = shmget(IPC_PRIVATE, sizeof(int) * m * r, IPC_CREAT | 0777); // generating shmid for allocation/attachment of shared memory segment using shmget()
     if (shmid == -1)
     {
         perror("shmget error:\n");
         exit(0);
     }
-    int *shared_memory = shmat(shmid, NULL, 0); // Allocating/Attaching the shared memory segment using shmat()
-    int status;                                 // keeping track of child process exit status
+    printf("Generated shmid using shmget() is : %d\n", shmid);
+    int status; // keeping track of child process exit status
     //  Calculation of product matrix elements
     for (int i = 0; i < m; i++)
     {
@@ -101,8 +101,19 @@ int main(int argc, char *argv[])
             { // child process
                 printf("Child process with pid= %d is created and is trying to calculate the element at [%d,%d] position in the product matrix\n", getpid(), i, j);
                 int res = multiply(n, A[i], B_transpose[j]);
+                int *shared_memory = shmat(shmid, NULL, 0); // Allocating/Attaching the shared memory segment using shmat()
+                if (shared_memory == (void *)-1)
+                {
+                    perror("shmat() fails for child\n");
+                    exit(0);
+                }
                 // Since shared memory is one-dimensional we need to multiply the row_index with the number of columns in the resultant matrix and add it to the column_index, so that the order remains intact
                 shared_memory[i * r + j] = res;
+                int err = shmdt(shared_memory); // detaching the shared memory
+                if (err == -1)
+                {
+                    perror("shmdt() fails for child\n");
+                }
                 exit(EXIT_SUCCESS);
             }
             else
@@ -122,10 +133,17 @@ int main(int argc, char *argv[])
     }
 
     // Read from shared memory and print the result matrix
+    int *shared_memory = shmat(shmid, NULL, 0); // attaching shared memory segment to parent process
+    printf("Within parent: Final matrix is:\n");
     for (int i = 0; i < m; i++)
     {
         for (int j = 0; j < r; j++)
         {
+            if (shared_memory == (void *)-1)
+            {
+                perror("shmat() fails for parent\n");
+                exit(0);
+            }
             printf("%d ", shared_memory[i * r + j]);
         }
         printf("\n");
