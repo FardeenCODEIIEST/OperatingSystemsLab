@@ -9,18 +9,20 @@
 
 /* Function that computes the sum of products formed by row of the first matrix and column of the second matrix
  *
- * @params:- (n:Length of the row/col, int[]: row, int []:col)
- * @return:- The consequent sum of product terms
+ * @params:- (i:index of row ,n:Length of the row/col,r: length of col in product matrix ,int[]: row, int [][]:col,int[]: shared_memory)
+ * @return:- void
  */
 
-int multiply(int n, int row[n], int col[n])
-{
-    int sum = 0;
-    for (int i = 0; i < n; i++)
-    {
-        sum += (row[i] * col[i]);
+void multiply(int i,int n,int r,int row[n], int col[n][r],int* shared_memory)
+{	
+    for(int c1=0;c1<r;c1++){
+	int s=0;
+	for(int k=0;k<n;k++){
+		s+=(row[k]*col[k][c1]);
+	}
+	shared_memory[i*r+c1]=s;
     }
-    return sum;
+    return;
 }
 
 /*
@@ -89,8 +91,6 @@ int main(int argc, char *argv[])
     //  Calculation of product matrix elements
     for (int i = 0; i < m; i++)
     {
-        for (int j = 0; j < r; j++)
-        {
             pid_t pid = fork();
             if (pid == -1)
             { // fork failed
@@ -99,8 +99,8 @@ int main(int argc, char *argv[])
             }
             else if (pid == 0)
             { // child process
-                printf("Child process with pid= %d is created and is trying to calculate the element at [%d,%d] position in the product matrix\n", getpid(), i, j);
-                int res = multiply(n, A[i], B_transpose[j]);
+                printf("Child process with pid= %d is created and is trying to calculate the elements at row %d in the product matrix\n", getpid(),i);
+
                 int *shared_memory = shmat(shmid, NULL, 0); // Allocating/Attaching the shared memory segment using shmat()
                 if (shared_memory == (void *)-1)
                 {
@@ -108,8 +108,9 @@ int main(int argc, char *argv[])
                     exit(0);
                 }
                 // Since shared memory is one-dimensional we need to multiply the row_index with the number of columns in the resultant matrix and add it to the column_index, so that the order remains intact
-                shared_memory[i * r + j] = res;
-                int err = shmdt(shared_memory); // detaching the shared memory
+                //shared_memory[i * r + j] = res;
+                multiply(i,n,r,A[i],B,shared_memory);
+		int err = shmdt(shared_memory); // detaching the shared memory
                 if (err == -1)
                 {
                     perror("shmdt() fails for child\n");
@@ -129,7 +130,6 @@ int main(int argc, char *argv[])
                     fprintf(stderr, "Child process with pid=%d is terminating normally\n", childPid);
                 }
             }
-        }
     }
 
     // Read from shared memory and print the result matrix

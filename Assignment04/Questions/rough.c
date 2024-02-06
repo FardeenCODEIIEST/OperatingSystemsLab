@@ -1,16 +1,32 @@
-#include <stdio.h>     // For printf() ..
-#include <unistd.h>    // For fork() ..
-#include <sys/types.h> // For pid_t struct ..
-#include <sys/wait.h>  // for wait() ..
-#include <errno.h>     // for perror() ..
-#include <stdlib.h>    // for exit(),atoi() ..
-#include <sys/ipc.h>   // for ftok()
-#include <sys/shm.h>   // for shmget(),shmat() ..
+#include <stdio.h>	// For printf() ..
+#include <unistd.h>	// For fork(),usleep(),...
+#include <sys/types.h>	// For pid_t struct ..
+#include <sys/wait.h>	// for wait() ..
+#include <errno.h>	// for perror() ..
+#include <stdlib.h>	// for exit(),atoi() ..
+#include <sys/ipc.h>	// for ftok()
+#include <sys/shm.h>	// for shmget(),shmat() ..
+#include <stdbool.h>	// for true,false ,...
+
+#define MAX_SIZE 50	// Maximum dimension of row and column of any matrix
+#define MAX_CHILDREN 50	// Maximum number of child process created in the process pool
+
+/* Structure that will be resonsible for each matrix multiplication, i.e one task(type Task) handles one matrix multiplication */
+typedef struct{
+	int m;					// Number of rows in the first matrix
+	int n;					// Number of columns in the first matrix
+	int r;					// Number of columns in the second matrix
+	int A[MAX_SIZE][MAX_SIZE];		// First Matrix
+	int B[MAX_SIZE][MAX_SIZE];		// Second Matrix
+	bool computing[MAX_CHILDREN];		// Computation flag for each child prcoess
+	bool exiting;				// Flag to indicate that the child processes will exit
+}Task;
 
 /* Function that computes the sum of products formed by row of the first matrix and column of the second matrix
  *
  * @params:- (i:index of row ,n:Length of the row/col,r: length of col in product matrix ,int[]: row, int [][]:col,int[]: shared_memory)
  * @return:- void
+ *
  */
 
 void multiply(int i,int n,int r,int row[n], int col[n][r],int* shared_memory)
@@ -25,134 +41,164 @@ void multiply(int i,int n,int r,int row[n], int col[n][r],int* shared_memory)
     return;
 }
 
-/*
- * Accepts arguments in the form of -->
- * 	"./[name].exe m n r A0 A1 A2 A3 A4 ... B0 B1 B2 B3 B4 ...."
- * 	Here
- * 	m	---->	number of rows of the first matrix
- * 	n	---->   number of columns of the first matrix, which is equal to number of row of the second matrix
- * 	r	---->   number of columns of the second matrix
+
+/* Function that computes a multiplication of two matrices using childProcesses
  *
- * 	A1,A2,A3,A4.... ------>  Represent the elements of the first matrix in row major order
- * 	B1,B2,B3,B4.... ------>  Represent the elemnets of the second matrix in row major order
+ *  @params:- (task: Pointer to Task type struct corresponding to a given matrix multiplication,childNumber: Sequence number of child process)
+ *  @return:- void
+ *
+ */
+
+void process_child(Task* task,int childNumber, int shmid2){
+  	while(true){
+		if(task->exiting){
+			// terminate the child process
+			exit(0);
+		}
+		if(task->computing[childNumber]){
+			int row=childNumber/(task->r);
+			int* sharedMemory=(int *)shmat(shmid2,NULL,0);					// Attach child process to the segment
+			if(sharedMemory==(void *)-1){
+				perror("shmat: error\n");
+				exit(0);
+			}
+			multiply(row,task->n,task->r,task->A[row],task->B,sharedMemory);
+			task->computing[childNumber]=false;						// Finished execution of multiplication
+			shmdt(sharedMemory);								// detach child process from the segment
+		}
+		usleep(1000);	// wait for 1 ms
+	}
+}
+
+/*
+ * Accepts no arguments since we want to perform the multiplication as long as the user wants
  *
  */
 
 int main(int argc, char *argv[])
 {
-    if (argc < 6)
-    {
-        /* Least possible input will be "./[name].exe 1 1 1 1 1" ---> argc=6*/
-        fprintf(stderr, "Usage :- %s m n r matrix elements in row major order\n", argv[0]);
-        exit(0);
-    }
-    int m = atoi(argv[1]);
-    int n = atoi(argv[2]);
-    int r = atoi(argv[3]);
-    int A[m][n];
-    int B[n][r];
-    int B_transpose[r][n]; // calculating the transpose to get the elements from the columns without any complexity
-
-    int c = 4; // elements are starting from the 4th index of the argv[] array
-
-    // Initialize matrices A and B
-    for (int i = 0; i < m; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
-            A[i][j] = atoi(argv[c++]);
-        }
-    }
-
-    for (int i = 0; i < n; i++)
-    {
-        for (int j = 0; j < r; j++)
-        {
-            B[i][j] = atoi(argv[c++]);
-        }
-    }
-
-    for (int i = 0; i < r; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
-            B_transpose[i][j] = B[j][i];
-        }
-    }
-    // Creating shared memory segment
-    int shmid = shmget(IPC_PRIVATE, sizeof(int) * m * r, IPC_CREAT | 0777); // generating shmid for allocation/attachment of shared memory segment using shmget()
+    Task* task;
+    pid_t child_process[MAX_CHILDREN];
+    // Creating shared memory segment for tasks
+    int shmid = shmget(IPC_PRIVATE, sizeof(Task), IPC_CREAT | 0777); // generating shmid for allocation/attachment of shared memory segment using shmget()
     if (shmid == -1)
     {
-        perror("shmget error:\n");
+        perror("shmget error for Task:\n");
         exit(0);
     }
-    printf("Generated shmid using shmget() is : %d\n", shmid);
-    int status; // keeping track of child process exit status
-    //  Calculation of product matrix elements
-    for (int i = 0; i < m; i++)
-    {
-            pid_t pid = fork();
-            if (pid == -1)
-            { // fork failed
-                perror("fork failed:\n");
-                exit(EXIT_FAILURE);
-            }
-            else if (pid == 0)
-            { // child process
-                printf("Child process with pid= %d is created and is trying to calculate the elements at row %d in the product matrix\n", getpid(),i);
+    // Result Matrix ---> shared memory segment
+    key_t key=ftok("/tmp/",0);
+    int shmid2=shmget(key,sizeof(int)*MAX_SIZE*MAX_SIZE,IPC_CREAT|0777);
+    if(shmid2==-1){
+	perror("shmget error for result matrix\n");
+	exit(0);
+    }
+    printf("Generated shmid using shmget() for tasks is : %d\n", shmid);
+    printf("Generated shmid using shmget() for result matrix is : %d\n", shmid2);
+    // Attach the shared memory using shmat()
+    task=(Task*)shmat(shmid,NULL,0);
+    if(task==(void*)-1){
+    	perror("shmat error:\n");
+	exit(0);
+    }
+    int* sharedMemory=(int *)shmat(shmid2,NULL,0);
+    if(sharedMemory==(void*)-1){
+	 	perror("shmat: error\n");
+		exit(0);
+    }
+    // Task initialization
+    task->exiting=false;
+    for(int i=0;i<MAX_CHILDREN;i++){
+	task->computing[i]=false;
+    }
+//    task->result=(int **)malloc(sizeof(int*)*MAX_SIZE);
+//    for(int i=0;i<MAX_SIZE;i++){
+//	task->result[i]=(int *)malloc(sizeof(int)*MAX_SIZE);
+//    }
+    // create a process pool
+    for(int i=0;i<MAX_CHILDREN;i++){
+   	pid_t pid=fork();
+	if(pid==-1){
+		perror("fork error:\n");
+		exit(0);
+	}
+	else if(pid==0){
+		// Process child processes
+		process_child(task,i,shmid2);
+	}
+	else{
+		// Parent process
+		child_process[i]=pid;
+	}
+    }
+    // Loop for matrix multiplication
 
-                int *shared_memory = shmat(shmid, NULL, 0); // Allocating/Attaching the shared memory segment using shmat()
-                if (shared_memory == (void *)-1)
-                {
-                    perror("shmat() fails for child\n");
-                    exit(0);
+     while (true) {
+        printf("Enter the dimensions of the matrices (m n r) or 0 0 0 to exit: ");
+        scanf("%d %d %d", &task->m, &task->n, &task->r);
+        if (task->m == 0 && task->n == 0 && task->r == 0) {
+            task->exiting = true;
+	    // Deallocate memory for result matrix 
+//	    for(int i=0;i<MAX_SIZE;i++){
+//		free(task->result[i]);
+//	    }
+//	    free(task->result);
+            break;
+        }
+
+        if (task->m > MAX_SIZE || task->n > MAX_SIZE || task->r > MAX_SIZE) {
+            printf("Dimensions exceed the maximum limit of %d.\n", MAX_SIZE);
+            continue;
+        }
+
+        printf("Enter elements of first matrix in row-major order:\n");
+        for (int i = 0; i < task->m; i++)
+            for (int j = 0; j < task->n; j++)
+                scanf("%d", &task->A[i][j]);
+
+        printf("Enter elements of second matrix in row-major order:\n");
+        for (int i = 0; i < task->n; i++)
+            for (int j = 0; j < task->r; j++)
+                scanf("%d", &task->B[i][j]);
+
+        // Indicate the child processes to start computation
+        for (int i = 0; i < task->m * task->r; i++) {
+            task->computing[i] = true;
+        }
+
+        // Wait for all child processes to complete current task
+        bool all_done = false;
+        while (!all_done) {
+            all_done = true;
+            for (int i = 0; i < task->m; i++) {	// Total m child processes
+                if (task->computing[i]) {
+                    all_done = false;
+                    break;
                 }
-                // Since shared memory is one-dimensional we need to multiply the row_index with the number of columns in the resultant matrix and add it to the column_index, so that the order remains intact
-                //shared_memory[i * r + j] = res;
-                multiply(i,n,r,A[i],B,shared_memory);
-		int err = shmdt(shared_memory); // detaching the shared memory
-                if (err == -1)
-                {
-                    perror("shmdt() fails for child\n");
-                }
-                exit(EXIT_SUCCESS);
             }
-            else
-            { // parent process should wait for child process completion
-                pid_t childPid = wait(&status);
-                if (childPid == -1)
-                {
-                    perror("wait failed:\n");
-                    exit(0);
-                }
-                else
-                {
-                    fprintf(stderr, "Child process with pid=%d is terminating normally\n", childPid);
-                }
+            usleep(10000); // Check the status every 10ms
+        }
+
+        // Print the result matrix
+	printf("Result matrix:\n");
+        for (int i = 0; i < task->m; i++) {
+            for (int j = 0; j < task->r; j++) {
+                printf("%d ", sharedMemory[i*(task->r)+j]);
             }
+            printf("\n");
+        }
     }
 
-    // Read from shared memory and print the result matrix
-    int *shared_memory = shmat(shmid, NULL, 0); // attaching shared memory segment to parent process
-    printf("Within parent: Final matrix is:\n");
-    for (int i = 0; i < m; i++)
-    {
-        for (int j = 0; j < r; j++)
-        {
-            if (shared_memory == (void *)-1)
-            {
-                perror("shmat() fails for parent\n");
-                exit(0);
-            }
-            printf("%d ", shared_memory[i * r + j]);
-        }
-        printf("\n");
+    // Wait for all child processes to terminate
+    for(int i=0; i<MAX_CHILDREN; i++){
+	waitpid(child_process[i],NULL,0);
     }
 
     // Detaching the shared memory
-    shmdt(shared_memory);
+    shmdt(task);
+    shmdt(sharedMemory);
     // Marking the segment to be destroyed
     shmctl(shmid, IPC_RMID, NULL);
-
+    shmctl(shmid2,IPC_RMID,NULL);
     exit(0);
 }
