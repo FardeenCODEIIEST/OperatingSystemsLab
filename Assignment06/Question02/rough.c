@@ -97,7 +97,7 @@ int main()
         exit(0);
     }
     *status = 1;
-    setvalArg.val = 3;
+    setvalArg.val = 2;
 
     /* struct sembuf has the following fields */
     // unsigned short sem_num;  /* semaphore number */
@@ -119,7 +119,7 @@ int main()
         exit(1);
     }
 
-    //  int semget(key_t key, int nsems, int semflg);
+    // int semget(key_t key, int nsems, int semflg);
     semid = semget(mykey, NO_SEM, IPC_CREAT | 0777);
     if (semid == -1)
     {
@@ -128,15 +128,17 @@ int main()
     }
 
     Pop.sem_num = 0;
-    int c = semctl(semid, 0, SETVAL, setvalArg);
+    int c = semctl(semid, 0, GETVAL, setvalArg);
     if (c == -1)
     {
         perror("semctl() failed");
         exit(1);
     }
-    printf("Created the 3 chairs\n");
-    while (1)
-        ;
 
+    printf("Waiting for chair\n");
+    P(semid);
+    printf("Please! Enter the classroom\n");
+    sleep(10);
+    V(semid);
     return 0;
 }

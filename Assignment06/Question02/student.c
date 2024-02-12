@@ -37,6 +37,8 @@ void releaseSHM(int signum)
     statusChecker = semctl(semid, 0, IPC_RMID, setvalArg); /* IPC_RMID is the command for destroying the semaphore*/
     p = shmctl(shmid, IPC_RMID, NULL);
     *status = 0;
+    Vop.sem_num = 0;
+    V(semid); // release the chair
     if (statusChecker == 0 || p == 0)
     {
         fprintf(stderr, "Remove shared memory with id=%d\n", semid);
@@ -97,7 +99,7 @@ int main()
         exit(0);
     }
     *status = 1;
-    setvalArg.val = 2;
+    // setvalArg.val = 3;
 
     /* struct sembuf has the following fields */
     // unsigned short sem_num;  /* semaphore number */
@@ -138,7 +140,7 @@ int main()
     printf("Waiting for chair\n");
     P(semid);
     printf("Please! Enter the classroom\n");
-    sleep(10);
+    getchar();
     V(semid);
     return 0;
 }
