@@ -6,6 +6,7 @@
 #include <unistd.h>	 // for sleep(), ..
 #include <string.h>	 // for strlen(), ..
 #include <ctype.h>	 // for isdigit(), ..
+#include <time.h>	// for random seed() ,..
 
 #define MAX_SIZE 10
 #define MAX_VALUE_SIZE 10
@@ -141,6 +142,7 @@ bool validNumber(char s[MAX_VALUE_SIZE])
 
 int main(int argc, char *argv[])
 {
+	srand(time(NULL));
 	if (argc != 3)
 	{
 		fprintf(stderr, "Usage: %s m n\n", argv[0]);
@@ -266,25 +268,25 @@ void *producer(void *param)
 	while (1)
 	{
 		int value;
-		char valueBuffer[MAX_VALUE_SIZE];
-		printf("Enter the value \n");
-		scanf("%s",valueBuffer);
-		if(!validNumber(valueBuffer))
+		char numBuffer[MAX_VALUE_SIZE];
+		printf("Enter the number of values to be enqueued: \n");
+		scanf("%s",numBuffer);
+		if(!validNumber(numBuffer))
 		{
 			fprintf(stderr,"Cannot expect string or characters from the input\n");
 			continue;
 		}
 		// scanf("%d", &value);
-		value=atoi(valueBuffer);
+		value=atoi(numBuffer);
 		status = pthread_mutex_lock(&p_mutex);
 		if (status != 0)
 		{
 			error_message(status, "pthread_mutex_lock()\n", 2);
 			return 0;
 		}
-		while (isFull(alldata))
+		while (isFull(alldata)||(value>(MAX_SIZE-alldata->size)))
 		{
-			printf("Queue is full cannot enqueue\n");
+			printf("Cannot enqueue\n");
 			status = pthread_cond_wait(&full, &p_mutex);
 			if (status != 0)
 			{
@@ -292,8 +294,13 @@ void *producer(void *param)
 				return 0;
 			}
 		}
-		enqueue(alldata, value);
-
+		for(int i=0;i<value;i++)
+		{
+			printf("Enter the value to be enqueued\n");
+			int numVal;
+			scanf("%d",&numVal);
+			enqueue(alldata,numVal);
+		}
 		status = pthread_cond_signal(&empty); // signal consumer threads
 		if (status != 0)
 		{
@@ -306,7 +313,7 @@ void *producer(void *param)
 			error_message(status, "pthread_mutex_unlock()\n", 3);
 			return 0;
 		}
-		// sleep(1);
+		sleep(1);
 	}
 
 	/* Free the data malloced in the main thread */
@@ -326,7 +333,8 @@ void *consumer(void *param)
 	Queue *alldata; // Queue
 
 	alldata = (Queue *)param;
-
+	// int num=rand()%	MAX_SIZE+1;
+	int num=2;
 	while (1)
 	{
 		status = pthread_mutex_lock(&c_mutex);
@@ -335,9 +343,9 @@ void *consumer(void *param)
 			error_message(status, "pthread_mutex_lock()\n", 2);
 			return 0;
 		}
-		while (isEmpty(alldata))
+		while (isEmpty(alldata)||(num>alldata->size))
 		{
-			printf("Queue is empty cannot dequeue\n");
+			printf("Cannot dequeue\n");
 			status = pthread_cond_wait(&empty, &c_mutex);
 			if (status != 0)
 			{
@@ -345,8 +353,8 @@ void *consumer(void *param)
 				return 0;
 			}
 		}
-
-		dequeue(alldata);
+		for(int i=0;i<num;i++)
+			dequeue(alldata);
 		status = pthread_cond_signal(&full); // signal producr threads
 		if (status != 0)
 		{
@@ -359,7 +367,7 @@ void *consumer(void *param)
 			error_message(status, "pthread_mutex_unlock()\n", 3);
 			return 0;
 		}
-		// sleep(1);
+		sleep(1);
 	}
 
 	/* Free the data malloced in the main thread */
