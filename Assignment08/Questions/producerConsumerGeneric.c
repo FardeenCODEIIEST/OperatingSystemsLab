@@ -6,7 +6,7 @@
 #include <unistd.h>	 // for sleep(), ..
 #include <string.h>	 // for strlen(), ..
 #include <ctype.h>	 // for isdigit(), ..
-#include <time.h>	// for random seed() ,..
+#include <time.h>	 // for random seed() ,..
 
 #define MAX_SIZE 10
 #define MAX_VALUE_SIZE 10
@@ -133,9 +133,10 @@ void error_message(int status, char *str, int type)
 
 bool validNumber(char s[MAX_VALUE_SIZE])
 {
-	for(int i=0;i<strlen(s);i++)
+	for (int i = 0; i < strlen(s); i++)
 	{
-		if(!isdigit(s[i])) return false;
+		if (!isdigit(s[i]))
+			return false;
 	}
 	return true;
 }
@@ -270,36 +271,36 @@ void *producer(void *param)
 		int value;
 		char numBuffer[MAX_VALUE_SIZE];
 		printf("Enter the number of values to be enqueued: \n");
-		scanf("%s",numBuffer);
-		if(!validNumber(numBuffer))
+		scanf("%s", numBuffer);
+		if (!validNumber(numBuffer))
 		{
-			fprintf(stderr,"Cannot expect string or characters from the input\n");
+			fprintf(stderr, "Cannot expect string or characters from the input\n");
 			continue;
 		}
 		// scanf("%d", &value);
-		value=atoi(numBuffer);
-		status = pthread_mutex_lock(&p_mutex);
+		value = atoi(numBuffer);
+		status = pthread_mutex_lock(&c_mutex);
 		if (status != 0)
 		{
 			error_message(status, "pthread_mutex_lock()\n", 2);
 			return 0;
 		}
-		while (isFull(alldata)||(value>(MAX_SIZE-alldata->size)))
+		while (isFull(alldata) || (value > (MAX_SIZE - alldata->size)))
 		{
 			printf("Cannot enqueue\n");
-			status = pthread_cond_wait(&full, &p_mutex);
+			status = pthread_cond_wait(&full, &c_mutex);
 			if (status != 0)
 			{
 				error_message(status, "pthread_cond_wait()\n", 6);
 				return 0;
 			}
 		}
-		for(int i=0;i<value;i++)
+		for (int i = 0; i < value; i++)
 		{
 			printf("Enter the value to be enqueued\n");
 			int numVal;
-			scanf("%d",&numVal);
-			enqueue(alldata,numVal);
+			scanf("%d", &numVal);
+			enqueue(alldata, numVal);
 		}
 		status = pthread_cond_signal(&empty); // signal consumer threads
 		if (status != 0)
@@ -307,7 +308,7 @@ void *producer(void *param)
 			error_message(status, "pthread_cond_signal()\n", 7);
 			return 0;
 		}
-		status = pthread_mutex_unlock(&p_mutex);
+		status = pthread_mutex_unlock(&c_mutex);
 		if (status != 0)
 		{
 			error_message(status, "pthread_mutex_unlock()\n", 3);
@@ -333,17 +334,18 @@ void *consumer(void *param)
 	Queue *alldata; // Queue
 
 	alldata = (Queue *)param;
-	// int num=rand()%	MAX_SIZE+1;
-	int num=2;
+
 	while (1)
 	{
+		int num = rand() % MAX_SIZE + 1;
+		printf("Number of elements to be dequeued: %d\n", num);
 		status = pthread_mutex_lock(&c_mutex);
 		if (status != 0)
 		{
 			error_message(status, "pthread_mutex_lock()\n", 2);
 			return 0;
 		}
-		while (isEmpty(alldata)||(num>alldata->size))
+		while (isEmpty(alldata) || (num > alldata->size))
 		{
 			printf("Cannot dequeue\n");
 			status = pthread_cond_wait(&empty, &c_mutex);
@@ -353,7 +355,7 @@ void *consumer(void *param)
 				return 0;
 			}
 		}
-		for(int i=0;i<num;i++)
+		for (int i = 0; i < num; i++)
 			dequeue(alldata);
 		status = pthread_cond_signal(&full); // signal producr threads
 		if (status != 0)
