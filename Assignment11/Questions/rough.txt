@@ -1,0 +1,21 @@
+Please note that at the end of each block in the chain the block number of the next block is stored with the exception that at the of the last block of the chain -1 is stored (to mark that there is no next block).
+
+The file can store multiple such chains of blocks (chain number 0, chain number 1, chain number 2, and so on).
+
+With respect to the previous assignment, now, in the 1st 1024 Bytes of the file, you have to store a few more information as shown in the following figure.
+
+The meta data of the file(contained in the first 1024 bytes of the file):-
+n - the total number of blocks your file is stroing
+
+s - size (number of Bytes) of each block
+
+f - the number of blocks which are free, that is, not used in any of the chains.
+
+fb - a bit pattern showing which blocks are free at present. If there are n blocks, then this field should be of n bits, or n/8 Bytes. A 0 (zero) in this field will mean that the corresponding block is free, and if 1 (one) then used.
+
+Subsequently, after fb, the block number of the 1st block of each chain will be stored. For example if  the "1st Block number of the 0th chain" is 11, that means the block number of the 1st block of the 0th chain is 11. Please note that if the block number of the 1st block of a chain is -1, then the chain does not exist.
+
+On the basis of the above model, you have to write the following functions.
+
+     int readblock(const char *fname, int ch_no, int bno, char *buffer) - reads the bnoth block of the chain number ch_no in buffer from the file fname. This function returns 1 if successful, 0 otherwise.
+     int writeblock(const char *fname, int ch_no, int bno, char *buffer) - writes one block of data, taking it from buffer  and putting it as the data for the  bnoth block of the chain number ch_no in the file fname. If, at present, those many blocks are not present in the chain, this function will add required number of blocks in the chain filling them up with 0. If the given chain does not exist, this function creates the chain. Please note that if the block number of the 1st block of a chain is -1, then the chain does not exist. This function returns 1 if successful, 0 otherwise.

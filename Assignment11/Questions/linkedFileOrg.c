@@ -129,6 +129,7 @@ int read_block(const char *fname, int chno, int bno, char *buffer)
         perror("lseek error\n");
         return 0;
     }
+    offset = lseek(fileFD, 12 + (bno / 8) + chno * sizeof(int), SEEK_SET);
     printf(" Start Block number is %d in chain %d\n", chain_block_no, chno);
     while (chain_block_no != -1)
     {
