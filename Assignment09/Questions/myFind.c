@@ -29,7 +29,6 @@ void recursivelySearch(char *dirPath, bool flag, const char *pattern, time_t ini
     {
         sprintf(buffer, "%s/%s", dirPath, directEntry->d_name);
         lstat(buffer, &inode);
-
         // test each entry
 
         if (S_ISDIR(inode.st_mode) && strcmp(directEntry->d_name, ".") != 0 && strcmp(directEntry->d_name, "..") != 0)

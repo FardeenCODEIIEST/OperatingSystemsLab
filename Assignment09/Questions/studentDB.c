@@ -86,6 +86,102 @@ void updateEntryCount(int fd)
     write(fd, &n, sizeof(int));
 }
 
+void sortRecords()
+{
+    off_t offset;
+    studentRecord st, temp;
+    int n, tempDataFD, tempIndexFD;
+
+    int dataFD = open(dataFile, O_RDWR);
+    int indexFD = open(indexFile, O_RDWR);
+    tempDataFD = open("tempData.data", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+    tempIndexFD = open("tempIndex.index", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+
+    if (dataFD == -1 || indexFD == -1 || tempDataFD == -1 || tempIndexFD == -1)
+    {
+        perror("Opening file failed");
+        exit(EXIT_FAILURE);
+    }
+
+    n = readEntryCount(indexFD); // Get total entries
+
+    for (int i = 0; i < n; i++)
+    {
+        read(dataFD, &st, sizeof(studentRecord)); // Read record
+
+        // Find the correct position in the temporary data file
+        while (read(tempDataFD, &temp, sizeof(studentRecord)) == sizeof(studentRecord))
+        {
+            if (temp.roll > st.roll)
+            {
+                lseek(tempDataFD, -sizeof(studentRecord), SEEK_CUR);
+                break;
+            }
+        }
+
+        // Write the record to the correct position
+        offset = lseek(tempDataFD, 0, SEEK_CUR);
+        write(tempDataFD, &st, sizeof(studentRecord));
+        write(tempIndexFD, &offset, sizeof(off_t));
+    }
+
+    close(dataFD);
+    close(indexFD);
+    close(tempDataFD);
+    close(tempIndexFD);
+
+    // Delete the original files and rename the temporary files
+    remove(dataFile);
+    remove(indexFile);
+    rename("tempData.data", dataFile);
+    rename("tempIndex.index", indexFile);
+}
+
+void printRecords()
+{
+    int indexFD = open(indexFile, O_RDONLY);
+    if (indexFD == -1)
+    {
+        perror("open failed\n");
+        exit(EXIT_FAILURE);
+    }
+    int dataFD = open(dataFile, O_RDONLY);
+    if (dataFD == -1)
+    {
+        perror("open failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int n = readEntryCount(indexFD); // Number of entries
+
+    studentRecord st;
+
+    for (int i = 0; i < n; i++)
+    {
+        off_t offset;
+        // Read the offset from the index file
+        if (read(indexFD, &offset, sizeof(off_t)) != sizeof(off_t))
+        {
+            perror("Failed to read offset from index file");
+            exit(EXIT_FAILURE);
+        }
+
+        // Seek to the offset in the data file and read the record
+        lseek(dataFD, offset, SEEK_SET);
+        if (read(dataFD, &st, sizeof(studentRecord)) != sizeof(studentRecord))
+        {
+            perror("Failed to read record from data file");
+            exit(EXIT_FAILURE);
+        }
+
+        // Print the record
+        printf("Roll: %d, Name: %s %s %s, Desc: %s\n", st.roll, st.fname, st.mname, st.sname, st.desc);
+    }
+
+    close(dataFD);
+    close(indexFD);
+}
+
 /*
     @brief:- Function inserts student record in student.data file and also updates the student.index file
 */
@@ -445,6 +541,9 @@ int main(int argc, char *argv[])
         {
             printf("Wrong choice Try again\n");
         }
+        printf("Sorted records are:\n");
+        sortRecords();
+        printRecords();
     }
     return 0;
 }

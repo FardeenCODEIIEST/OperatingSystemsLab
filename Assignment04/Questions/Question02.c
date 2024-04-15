@@ -13,14 +13,16 @@
  * @return:- void
  */
 
-void multiply(int i,int n,int r,int row[n], int col[n][r],int* shared_memory)
-{	
-    for(int c1=0;c1<r;c1++){
-	int s=0;
-	for(int k=0;k<n;k++){
-		s+=(row[k]*col[k][c1]);
-	}
-	shared_memory[i*r+c1]=s;
+void multiply(int i, int n, int r, int row[n], int col[n][r], int *shared_memory)
+{
+    for (int c1 = 0; c1 < r; c1++)
+    {
+        int s = 0;
+        for (int k = 0; k < n; k++)
+        {
+            s += (row[k] * col[k][c1]);
+        }
+        shared_memory[i * r + c1] = s;
     }
     return;
 }
@@ -34,7 +36,7 @@ void multiply(int i,int n,int r,int row[n], int col[n][r],int* shared_memory)
  * 	r	---->   number of columns of the second matrix
  *
  * 	A1,A2,A3,A4.... ------>  Represent the elements of the first matrix in row major order
- * 	B1,B2,B3,B4.... ------>  Represent the elemnets of the second matrix in row major order
+ * 	B1,B2,B3,B4.... ------>  Represent the elements of the second matrix in row major order
  *
  */
 
@@ -91,45 +93,45 @@ int main(int argc, char *argv[])
     //  Calculation of product matrix elements
     for (int i = 0; i < m; i++)
     {
-            pid_t pid = fork();
-            if (pid == -1)
-            { // fork failed
-                perror("fork failed:\n");
-                exit(EXIT_FAILURE);
-            }
-            else if (pid == 0)
-            { // child process
-                printf("Child process with pid= %d is created and is trying to calculate the elements at row %d in the product matrix\n", getpid(),i);
+        pid_t pid = fork();
+        if (pid == -1)
+        { // fork failed
+            perror("fork failed:\n");
+            exit(EXIT_FAILURE);
+        }
+        else if (pid == 0)
+        { // child process
+            printf("Child process with pid= %d is created and is trying to calculate the elements at row %d in the product matrix\n", getpid(), i);
 
-                int *shared_memory = shmat(shmid, NULL, 0); // Allocating/Attaching the shared memory segment using shmat()
-                if (shared_memory == (void *)-1)
-                {
-                    perror("shmat() fails for child\n");
-                    exit(0);
-                }
-                // Since shared memory is one-dimensional we need to multiply the row_index with the number of columns in the resultant matrix and add it to the column_index, so that the order remains intact
-                //shared_memory[i * r + j] = res;
-                multiply(i,n,r,A[i],B,shared_memory);
-		int err = shmdt(shared_memory); // detaching the shared memory
-                if (err == -1)
-                {
-                    perror("shmdt() fails for child\n");
-                }
-                exit(EXIT_SUCCESS);
+            int *shared_memory = shmat(shmid, NULL, 0); // Allocating/Attaching the shared memory segment using shmat()
+            if (shared_memory == (void *)-1)
+            {
+                perror("shmat() fails for child\n");
+                exit(0);
+            }
+            // Since shared memory is one-dimensional we need to multiply the row_index with the number of columns in the resultant matrix and add it to the column_index, so that the order remains intact
+            // shared_memory[i * r + j] = res;
+            multiply(i, n, r, A[i], B, shared_memory);
+            int err = shmdt(shared_memory); // detaching the shared memory
+            if (err == -1)
+            {
+                perror("shmdt() fails for child\n");
+            }
+            exit(EXIT_SUCCESS);
+        }
+        else
+        { // parent process should wait for child process completion
+            pid_t childPid = wait(&status);
+            if (childPid == -1)
+            {
+                perror("wait failed:\n");
+                exit(0);
             }
             else
-            { // parent process should wait for child process completion
-                pid_t childPid = wait(&status);
-                if (childPid == -1)
-                {
-                    perror("wait failed:\n");
-                    exit(0);
-                }
-                else
-                {
-                    fprintf(stderr, "Child process with pid=%d is terminating normally\n", childPid);
-                }
+            {
+                fprintf(stderr, "Child process with pid=%d is terminating normally\n", childPid);
             }
+        }
     }
 
     // Read from shared memory and print the result matrix

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <sys/types.h>
 // #include <sys/wait.h> --> Tried to implement without using wait()
@@ -13,8 +14,8 @@
 
 
 // Evaluate the value of the polynomial for a given value of v
-double evaluatePolynomialTerm(int n, double v, double coefficients[]) {
-    double result = coefficients[0];
+int evaluatePolynomialTerm(int n, int v, int coefficients[]) {
+    int result = coefficients[0];
     for (int i = 1; i<=n; i++) {
         result = result * v + coefficients[i];
     }
@@ -22,38 +23,68 @@ double evaluatePolynomialTerm(int n, double v, double coefficients[]) {
 }
 
 // Print each polynomial term
-void  printPolynomialTerm(int index, double x, double coefficients[],int n){
+int  printPolynomialTerm(int index, int x, int coefficients[],int n){
     int res=1;
     for (int i = n-index-1; i>=0; i--) {
         res*= x;
     }
-    printf("P(%d): Result for term %d = %.0f * %d = %.0f\n",n-index,n-index,coefficients[index],res,coefficients[index]*res);
+    printf("P(%d): Result for term %d = %d * %d = %d\n",n-index,n-index,coefficients[index],res,coefficients[index]*res);
+    return coefficients[index]*res;
 }
 int main(int argc, char *argv[]) {
-    double v = atof(argv[1]);	// Value of v
+    if(argc<3)
+    {
+    	fprintf(stderr,"Usage:- %s <Value of V> <Terms>\n",argv[0]);
+	return -1;
+    }
+    int v = atoi(argv[1]);	// Value of v
     int n = argc - 3;		// Number of terms
-    double totalSum=0;
-    double coefficients[n+1];	
+    int totalSum=0;
+    int coefficients[n+1];	
     for (int i = 0; i <= n; i++) {
         coefficients[i] = atof(argv[i + 2]);
     }
-    printf("Details of Polynomial Chosen: \nDegree: %d\nValue of X: %.0f\n\n",n,v);
-
+    printf("Details of Polynomial Chosen: \nDegree: %d\nValue of X: %d\n\n",n,v);
+    pid_t pidArray[n+1];
     for (int i = 0; i <= n; i++) {
         pid_t pid = fork();
-
-        if (pid == 0) {
-            printPolynomialTerm(i, v, coefficients,n);
-            exit(0);
-        } else {
-           //wait(NULL);
-           sleep(n*0.2);
-	    if (i == n) {
-               totalSum = evaluatePolynomialTerm(n, v, coefficients);
-                printf("Total sum of the polynomial: %.0f\n", totalSum);
-            }
+	if(pid==-1)
+	{
+		perror("fork error\n");
+		return -1;
+	}
+        if (pid == 0) 
+	{
+            double res = printPolynomialTerm(i, v, coefficients,n);
+            return res;
+        } 
+	else 
+	{
+        	pidArray[i]=pid;  
         }
     }
+    int status;
+    for(int i=0;i<=n;i++)
+    {
+    	pid_t p = waitpid(pidArray[i],&status,0);
+	if(p==-1)
+	{
+		perror("waitpid error\n");
+		return -1;
+	}
+	printf("Process with pid %d returned successfully with answer %d\n",pidArray[i],status>>8);
+    	if (i == n) 
+	{
+             //totalSum = evaluatePolynomialTerm(n, v, coefficients);
+             	totalSum+=(status>>8);
+		printf("Total sum of the polynomial: %d\n", totalSum);
+        }
+	else
+	{
+		totalSum += (status>>8);
+	}
+    }
+
 
     return 0;
 }
