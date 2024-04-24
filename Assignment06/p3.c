@@ -136,7 +136,7 @@ int main()
             perror("semctl() failed");
             exit(1);
         }
-        P(semid);
+        P(semid);   
         fprintf(stdout, "I am p3!\n");
         Vop.sem_num = 1;
         c = semctl(semid, 1, GETVAL, setvalArg);

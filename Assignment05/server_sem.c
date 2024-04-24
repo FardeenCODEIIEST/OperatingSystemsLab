@@ -36,11 +36,12 @@ task *t;
 int shmid;
 int semid;
 
-union semnum{
-	int val;
-	struct semid_ds *buffer;
-	short* array;
-}arg;
+union semnum
+{
+    int val;
+    struct semid_ds *buffer;
+    short *array;
+} arg;
 
 /* following is a signal handler for the keypress ctrl-c*/
 typedef void (*sighandler_t)(int);
@@ -81,20 +82,24 @@ void releaseSHM(int signum)
     }
 }
 
-void my_lock(){
-	struct sembuff sbuf=(0,-1,0);
-	if(semop(semid,&sbuf,1)==-1){
-		perror("semop error\n");
-		exit(0);
-	}
+void my_lock()
+{
+    struct sembuff sbuf = (0, -1, 0);
+    if (semop(semid, &sbuf, 1) == -1)
+    {
+        perror("semop error\n");
+        exit(0);
+    }
 }
 
-void my_unlock(){
-	struct sembuff sbuf=(0,1,0);
-	if(semop(semid,&sbuf,1)==-1){
-		perror("semop error\n");
-		exit(0);
-	}
+void my_unlock()
+{
+    struct sembuff sbuf = (0, 1, 0);
+    if (semop(semid, &sbuf, 1) == -1)
+    {
+        perror("semop error\n");
+        exit(0);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -123,23 +128,26 @@ int main(int argc, char *argv[])
         perror("shmat() error at server");
         exit(0);
     }
-    key_t k1=ftok("/tmp/",3);
-    if(key==-1){
-	perror("ftok() error at server\n");
-	exit(0);
-    }
-    
-    if((semid==semget(k1,1,IPC_CREAT|0777))==-1){
-	perror("semget error\n");
-	exit(0);
+    key_t k1 = ftok("/tmp/", 3);
+    if (key == -1)
+    {
+        perror("ftok() error at server\n");
+        exit(0);
     }
 
-    arg.val=1;
-    if(semclt(semid,0,SETVAL,arg)<0){
-	perror("semctl error\n");
-	exit(0);
+    if ((semid == semget(k1, 1, IPC_CREAT | 0777)) == -1)
+    {
+        perror("semget error\n");
+        exit(0);
     }
-	
+
+    arg.val = 1;
+    if (semctl(semid, 0, SETVAL, arg) < 0)
+    {
+        perror("semctl error\n");
+        exit(0);
+    }
+
     /* Initialise task */
     t->status = 0;
 
@@ -180,7 +188,7 @@ int main(int argc, char *argv[])
         {
             t->status = 0;
         }
-    //    usleep(10000); // 10 ms --> server feeds data fastly
+        //    usleep(10000); // 10 ms --> server feeds data fastly
     }
     return 0;
 }

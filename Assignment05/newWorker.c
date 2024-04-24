@@ -55,14 +55,14 @@ int main(int argc, char *argv[])
         {
             printf("Worker with pid %d is answering the question :- %s \n", getpid(), t->question);
             t->status = 2; // before sort
-	    int roll;
-	    printf("Enter the rollno\n");
-	    scanf("%d",&roll);
+            int roll;
+            printf("Enter the rollno\n");
+            scanf("%d", &roll);
             t->rollno = roll;
             printf("Enter the answer:\n");
-            //fgets(t->answer, sizeof(t->answer), stdin);
-	    getchar();
-	    scanf("%s",t->answer);
+            // fgets(t->answer, sizeof(t->answer), stdin);
+            getchar();
+            scanf("%s", t->answer);
             t->tm = time(NULL);
             t->status = 3; // done sorting
         }
@@ -70,6 +70,6 @@ int main(int argc, char *argv[])
     }
     // t->status = -1 , i.e, server has released shared memory segment
 exit_here:
-    printf("Student with rollno %d is exiting\n",t->rollno);
+    printf("Student with rollno %d is exiting\n", t->rollno);
     return 0;
 }

@@ -136,12 +136,17 @@ int main()
         if (choice == 1)
         {
             enqueueInt(pipefd);
-            dequeueInt(pipefd);
+            enqueueInt(pipefd);
+            enqueueInt(pipefd);
+            // dequeueInt(pipefd);
         }
         else if (choice == 2)
         {
-            enqueueDouble(pipefd);
-            dequeueDouble(pipefd);
+            dequeueInt(pipefd);
+            dequeueInt(pipefd);
+            dequeueInt(pipefd);
+            // enqueueDouble(pipefd);
+            // dequeueDouble(pipefd);
         }
         else if (choice == 3)
         {

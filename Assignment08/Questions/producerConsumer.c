@@ -132,9 +132,10 @@ void error_message(int status, char *str, int type)
 
 bool validNumber(char s[MAX_VALUE_SIZE])
 {
-	for(int i=0;i<strlen(s);i++)
+	for (int i = 0; i < strlen(s); i++)
 	{
-		if(!isdigit(s[i])) return false;
+		if (!isdigit(s[i]))
+			return false;
 	}
 	return true;
 }
@@ -268,14 +269,14 @@ void *producer(void *param)
 		int value;
 		char valueBuffer[MAX_VALUE_SIZE];
 		printf("Enter the value \n");
-		scanf("%s",valueBuffer);
-		if(!validNumber(valueBuffer))
+		scanf("%s", valueBuffer);
+		if (!validNumber(valueBuffer))
 		{
-			fprintf(stderr,"Cannot expect string or characters from the input\n");
+			fprintf(stderr, "Cannot expect string or characters from the input\n");
 			continue;
 		}
 		// scanf("%d", &value);
-		value=atoi(valueBuffer);
+		value = atoi(valueBuffer);
 		status = pthread_mutex_lock(&p_mutex);
 		if (status != 0)
 		{
